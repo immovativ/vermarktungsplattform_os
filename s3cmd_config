@@ -1,0 +1,6 @@
+[default]
+access_key = ZOQC2ADZBOKCJSRQQPL9
+secret_key = X0RnZbPDs4PezCCXwGoA7RN0qaktcn5p2v5p3Sqg
+host_base = obs.eu-de.otc.t-systems.com
+host_bucket = obs.eu-de.otc.t-systems.com
+use_https = True

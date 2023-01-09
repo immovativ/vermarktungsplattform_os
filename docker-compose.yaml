@@ -1,0 +1,24 @@
+version: '3'
+services:
+  database:
+    image: postgis/postgis:12-3.2
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: vermarktungsplattform
+      POSTGRES_USER: vermarktungsplattform
+      POSTGRES_PASSWORD: vermarktungsplattform
+  mailhog:
+    image: mailhog/mailhog
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    entrypoint: ["/bin/sh", "-c", "MailHog &>/dev/null"]
+  localstack:
+    image: localstack/localstack
+    environment:
+      SERVICES: s3
+      DEFAULT_REGION: "eu-central-1"
+      EDGE_PORT: 8001
+    ports:
+      - "8001:8001"

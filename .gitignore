@@ -1,0 +1,14 @@
+.idea
+.gradle
+build
+bin
+out
+
+node_modules
+dist
+yarn-error.log
+cypress/videos
+cypress/screenshots
+cypress/downloads
+cypress/fixtures
+.coverage

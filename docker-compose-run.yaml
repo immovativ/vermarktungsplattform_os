@@ -1,0 +1,51 @@
+version: '3.8'
+services:
+  database:
+    image: postgis/postgis:12-3.2
+    networks:
+      - application
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: vermarktungsplattform
+      POSTGRES_USER: vermarktungsplattform
+      POSTGRES_PASSWORD: vermarktungsplattform
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready"
+        ]
+      interval: 2s
+      retries: 15
+  application:
+    image: vs-gitlab.immovativ.de/freiburg/vermarktungsplattform:latest
+    networks:
+      - application
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      mailhog:
+        condition: service_healthy
+    environment:
+      POSTGRES_JDBC: 'jdbc:postgresql://database:5432/vermarktungsplattform'
+      URL_PW_RESET: http://localhost:8080/protected/passwordReset
+      URL_PW_INVITE: http://localhost:8080/protected/invitation
+      URL_SURVEY_INVITE: http://localhost:8080/survey
+      EMAIL_HOST: mailhog
+  mailhog:
+    image: mailhog/mailhog
+    networks:
+      - application
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: [ "CMD", "nc", "-zv", "127.0.0.1", "8025" ]
+      interval: 2s
+      retries: 5
+
+networks:
+  application:

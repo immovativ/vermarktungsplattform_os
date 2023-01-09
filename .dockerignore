@@ -1,0 +1,6 @@
+# ignore everything
+*
+
+# include only relevant files
+!build/libs/application-all.jar
+!dist

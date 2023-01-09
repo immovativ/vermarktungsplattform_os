@@ -1,0 +1,136 @@
+# How does the deployment work?
+# * Enter the "test" stage
+#   * Run Jest tests and do a production build of the frontend
+#     * "node_modules" are cached here
+#     * Save "dist" folder as an artifact for the "build" stage
+#   * Run Kotest tests and build JAR for the backend
+#     * Save "application-all.jar" as an artifact for the "build" stage
+# * Enter "build" stage
+#   * Use the artifacts from "test" stage to feed docker build
+#   * Build docker image tagged with CI_COMMIT_SHORT_SHA and push it to the registry
+# * Enter the "e2e" stage
+#   * Use "docker-compose" to run "cypress" end-to-end tests
+#   * Do a cleanup with "docker system prune" for resources older than 24 hours
+# * Enter "retagAndPush" stage
+#   * Tag CI_COMMIT_SHORT_SHA tagged image with "latest" and push it to the registry
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+  DOCKER_REGISTRY_URL: swr.eu-de.otc.t-systems.com/freiburg
+  DOCKER_IMAGE_NAME: freiburg-vermarktungsplattform
+
+stages:
+  - test
+  - build
+  - retagAndPush
+  - cleanup
+
+cache:
+  untracked: true
+  key: node
+  paths:
+    - node_modules/
+
+test_and_build_fe:
+  image: node:16.14
+
+  stage: test
+
+  artifacts:
+    reports:
+      junit: .coverage/jest/junit.xml
+    paths:
+      - ./dist
+
+  before_script:
+    - yarn install
+
+  script:
+    - yarn ci-lint
+    - yarn test
+    - yarn build
+
+test_be:
+  image: amd64/eclipse-temurin:17-jdk-alpine
+
+  services:
+    - name: postgis/postgis:12-3.2
+      alias: database
+      variables:
+        POSTGRES_DB: vermarktungsplattform
+        POSTGRES_USER: vermarktungsplattform
+        POSTGRES_PASSWORD: vermarktungsplattform
+    - name: mailhog/mailhog
+      alias: mailhog
+      # prevent mailhog container spam in CI log
+      # See https://github.com/mailhog/MailHog/issues/56
+      # (can't set log driver in gitlab services, unfortunately)
+      entrypoint: [ "/bin/sh", "-c", "MailHog &>/dev/null" ]
+    - name: localstack/localstack
+      alias: localstack
+      variables:
+        SERVICES: s3
+        DEFAULT_REGION: "eu-central-1"
+        EDGE_PORT: 8001
+
+  stage: test
+
+  variables:
+    EMAIL_HOST: mailhog
+    POSTGRES_JDBC: jdbc:postgresql://database:5432/vermarktungsplattform
+    S3_ENDPOINT: http://localstack:8001
+
+  cache:
+    key:
+      files:
+        - gradle/wrapper/gradle-wrapper.properties
+    paths:
+      - cache/caches/
+      - cache/notifications/
+      - cache/wrapper/
+
+  artifacts:
+    expire_in: 1 week
+    reports:
+      junit: build/test-results/test/*.xml
+    paths:
+      - ./build/libs
+
+  script:
+    - apk --no-cache add freetype fontconfig ttf-dejavu # required for apache POI
+    - ./gradlew --build-cache --gradle-user-home cache/ spotlessCheck
+    - ./gradlew --build-cache --gradle-user-home cache/ test
+    - ./gradlew --build-cache --gradle-user-home cache/ shadowJar
+
+build_be:
+  stage: build
+
+  dependencies:
+    - test_be
+    - test_and_build_fe
+
+  image: docker:20.10.14
+
+  script:
+    - docker login -u eu-de@J5QY6I0BSNN3SLNIU9DA -p 247879e4dc16c1debefa636599dc3946131d2eb57c37f456bc314024475b0c5f swr.eu-de.otc.t-systems.com
+    - docker build --tag ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA} .
+    - docker push ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+
+retagAndPush:
+  image: docker:20.10.14
+
+  stage: retagAndPush
+  script:
+    - docker login -u eu-de@J5QY6I0BSNN3SLNIU9DA -p 247879e4dc16c1debefa636599dc3946131d2eb57c37f456bc314024475b0c5f swr.eu-de.otc.t-systems.com
+    - docker tag ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA} ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:latest
+    - docker push ${DOCKER_REGISTRY_URL}/${DOCKER_IMAGE_NAME}:latest
+  only:
+    - main
+
+cleanup_docker:
+  image: docker:20.10.14
+
+  stage: cleanup
+
+  script:
+    - docker system prune --filter "until=24h" --all --force # cleanup older resources

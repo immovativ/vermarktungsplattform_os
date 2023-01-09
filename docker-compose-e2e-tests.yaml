@@ -1,0 +1,74 @@
+version: '3.8'
+services:
+  database:
+    image: postgis/postgis:12-3.2
+    networks:
+      - application
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: vermarktungsplattform
+      POSTGRES_USER: vermarktungsplattform
+      POSTGRES_PASSWORD: vermarktungsplattform
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready"
+        ]
+      interval: 2s
+      retries: 15
+  application:
+    image: "${APPLICATION_IMAGE_NAME}"
+    networks:
+      - application
+    ports:
+      - "8080:8080"
+    depends_on:
+      database:
+        condition: service_healthy
+      mailhog:
+        condition: service_healthy
+    environment:
+      POSTGRES_JDBC: jdbc:postgresql://database:5432/vermarktungsplattform
+      URL_PW_RESET: http://application:8080/protected/passwordReset
+      URL_PW_INVITE: http://application:8080/protected/invitation
+      URL_SURVEY_INVITE: http://application:8080/survey
+      EMAIL_HOST: mailhog
+    healthcheck:
+      test: curl --fail http://localhost:8080/health || exit 1
+      interval: 2s
+      retries: 15
+  mailhog:
+    image: mailhog/mailhog
+    networks:
+      - application
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+    healthcheck:
+      test: [ "CMD", "nc", "-zv", "127.0.0.1", "8025" ]
+      interval: 2s
+      retries: 5
+    entrypoint: ["/bin/sh", "-c", "MailHog &>/dev/null"]
+  cypress:
+    build:
+      context: ./cypress
+      dockerfile: Dockerfile
+    networks:
+      - application
+    depends_on:
+      application:
+        condition: service_healthy
+    environment:
+      CYPRESS_baseUrl: http://application:8080
+      CYPRESS_mailHogBaseUrl: http://mailhog:8025
+      CYPRESS_FAIL_FAST_ENABLED: "false"
+      CYPRESS_databaseHost: "database"
+      CYPRESS_databasePort: "5432"
+    working_dir: /e2e
+    volumes:
+      - ./:/e2e
+
+networks:
+  application:

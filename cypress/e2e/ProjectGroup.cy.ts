@@ -1,0 +1,15 @@
+describe('Project group happy path', () => {
+  it('login', () => {
+    cy.logInAs('projekt@dietenbach.de', 'projekt')
+    cy.document().contains('Grundstücksvergabe Dietenbach')
+    cy.navigate('Vergabeverfahren')
+    cy.document().contains('Aktive oder geplante Verfahren')
+    cy.navigate('Entwürfe')
+    cy.navigate('Abgeschlossen')
+    cy.document().contains('Abgeschlossene Verfahren')
+    cy.navigate('Zu prüfende Bewerbungen')
+    cy.document().contains('Vergaben mit ungeprüften Bewerbungen')
+    cy.navigate('Dashboard')
+    cy.document().contains('Aktuell laufende Verfahren')
+  })
+})

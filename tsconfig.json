@@ -1,0 +1,28 @@
+{
+  "exclude": ["./cypress", "./ui/tests"],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "types": ["node"],
+    "module": "esnext",
+    "target": "es5",
+    "allowJs": false,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "isolatedModules": false,
+    "jsx": "react-jsx",
+    "moduleResolution": "node",
+    "noEmit": true,
+    "noImplicitAny": true,
+    "noFallthroughCasesInSwitch": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "paths": {
+      "@protected/*": [ "./ui/app/protected/*" ],
+      "@common/*": [ "./ui/app/common/*" ],
+      "@public/*": [ "ui/app/public/*" ]
+    }
+  }
+}
